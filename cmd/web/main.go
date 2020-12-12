@@ -2,6 +2,7 @@ package main
 
 import (
 	"azdanov.js.org/textbox/pkg/models/mysql"
+	"crypto/tls"
 	"database/sql"
 	"flag"
 	_ "github.com/go-sql-driver/mysql"
@@ -43,6 +44,7 @@ func main() {
 
 	session := sessions.New([]byte(*secret))
 	session.Lifetime = 12 * time.Hour
+	session.Secure = true
 
 	app := &application{
 		errorLog:      errorLog,
@@ -52,14 +54,20 @@ func main() {
 		templateCache: templateCache,
 	}
 
+	tlsConfig := &tls.Config{
+		PreferServerCipherSuites: true,
+		CurvePreferences:         []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
+
 	srv := &http.Server{
-		Addr:     *addr,
-		ErrorLog: errorLog,
-		Handler:  app.routes(),
+		Addr:      *addr,
+		ErrorLog:  errorLog,
+		Handler:   app.routes(),
+		TLSConfig: tlsConfig,
 	}
 
 	infoLog.Printf("Starting server on %s", *addr)
-	err = srv.ListenAndServe()
+	err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
 	errorLog.Fatal(err)
 }
 
